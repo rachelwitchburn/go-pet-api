@@ -14,6 +14,11 @@ type Pet struct {
 	Vacinado bool `json:"vacinado"`
 }
 
+type PetUpdate struct {
+	Idade *int `json:"idade"`
+	Vacinado *bool `json:"vacinado"`
+}
+
 type Tipo struct {
 	Tipo string `json:"tipo"`
 }
@@ -108,6 +113,45 @@ func deletePet (w http.ResponseWriter, r *http.Request) {
     http.Error(w, "Pet não encontrado", http.StatusNotFound)
 }
 
+// PATCH
+func patchPet(w http.ResponseWriter, r *http.Request) {
+	var petUpdate PetUpdate
+	id, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "ID inválido", http.StatusBadRequest)
+		return
+	}
+	
+	err = json.NewDecoder(r.Body).Decode(&petUpdate)
+	if err != nil {
+		http.Error(w, "JSON inválido", http.StatusBadRequest)
+		return
+	}
+
+	if petUpdate.Idade == nil && petUpdate.Vacinado == nil {
+		http.Error(w, "Nenhum campo para atualizar", http.StatusBadRequest)
+		return
+	}
+
+	for i, pet := range pets {
+		if pet.ID == id {
+			if petUpdate.Idade != nil {
+				pets[i].Idade = *petUpdate.Idade
+			}
+			if petUpdate.Vacinado != nil {
+				pets[i].Vacinado = *petUpdate.Vacinado
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode(pets[i])
+
+			return
+		}
+	}
+	http.Error(w, "Pet não encontrado", http.StatusNotFound)
+}
+
 
 func main () {
 	mux := http.NewServeMux()
@@ -116,6 +160,7 @@ func main () {
 	mux.HandleFunc("POST /pets", createPet)
 	mux.HandleFunc("PUT /pets/{id}", putPet)
 	mux.HandleFunc("DELETE /pets/{id}", deletePet)
+	mux.HandleFunc("PATCH /pets/{id}", patchPet)
 
 	http.ListenAndServe(":8080", nil)
 }

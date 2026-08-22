@@ -31,6 +31,23 @@ func getPet (w http.ResponseWriter, r *http.Request) {
 	return
 }
 
+// GET Pet by ID
+func getPetByIdD (w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Id inválido", http.StatusBadRequest)
+		return
+	}
+
+	for _, pet := range pets {
+		if pet.ID == id {
+			json.NewEncoder(w).Encode(pet)
+			return
+		}
+	}
+	http.Error(w, "Pet não encontrado", http.StatusNotFound)
+}
+
 // POST
 func createPet (w http.ResponseWriter, r *http.Request) {
 	var newPet Pet
@@ -95,6 +112,7 @@ func deletePet (w http.ResponseWriter, r *http.Request) {
 func main () {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /pets", getPet)
+	mux.HandleFunc("GET /pets/{id}", getPetByIdD)
 	mux.HandleFunc("POST /pets", createPet)
 	mux.HandleFunc("PUT /pets/{id}", putPet)
 	mux.HandleFunc("DELETE /pets/{id}", deletePet)

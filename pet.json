@@ -1,0 +1,8 @@
+{
+  "tipo": {
+    "tipo": "cachorro",
+    "raca": "Labrador"
+  },
+  "idade": 3,
+  "vacinado": true
+}

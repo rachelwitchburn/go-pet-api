@@ -5,11 +5,13 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"errors"
 )
 
 type Pet struct {
 	ID int `json:"id"`
-	Tipo Tipo `json:"tipo"`
+	Tipo string `json:"tipo"` // cachorro, gato, coelho, hamster
+	Raca string `json:"raca"`
 	Idade int `json:"idade"`
 	Vacinado bool `json:"vacinado"`
 }
@@ -19,21 +21,111 @@ type PetUpdate struct {
 	Vacinado *bool `json:"vacinado"`
 }
 
-type Tipo struct {
+type PetCreate struct {
 	Tipo string `json:"tipo"`
+	Raca string `json:"raca"`
+	Idade int `json:"idade"`
+	Vacinado bool `json:"vacinado"`
 }
 
-
 var pets []Pet
+
+var petCreate []PetCreate
+
+var nextID = 1
+
+func validatePetCreate (pet PetCreate) error {
+	if pet.Tipo == "" {
+		return errors.New("Tipo do pet é obrigatório")
+	}
+
+	if pet.Raca == "" {
+		return errors.New("Raça do pet é obrigatória")
+	}
+
+	if pet.Idade < 0 {
+		return errors.New("Idade não pode ser negativa")
+	}
+	return nil
+}
+
+func buildPet(input PetCreate) Pet {
+	pet := Pet {
+		ID:       nextID,
+        Tipo:     input.Tipo,
+        Raca:     input.Raca,
+        Idade:    input.Idade,
+        Vacinado: input.Vacinado, 
+	}
+
+	nextID++
+	return pet
+}
+
+func savePet (pet Pet) {
+	pets = append(pets, pet)
+}
+
+func findAllPets () []Pet {
+	return pets
+}
+
+func findPetByID(id int) (Pet, bool) {
+	for _, pet := range pets {
+		if pet.ID == id {
+			return pet, true
+		}
+	}
+	return Pet{}, false
+}
+
+func removePetById (id int) bool {
+	for i, pet := range pets {
+		if pet.ID == id {
+			pets = append(pets[:i], pets[i + 1:]...)
+			return true	
+		}
+	}
+	return false
+}
+
+func validatePetUpdate(update PetUpdate) error {
+	if update.Idade == nil && update.Vacinado == nil {
+		return errors.New("Nenhum campo para atualizar")
+	}
+	if update.Idade != nil && *update.Idade < 0 {
+		return errors.New("idade não pode ser negativa")
+	}
+	return nil
+}
+
+func updatePetByID(id int, update PetUpdate) (Pet, bool) {
+	for i, pet := range pets {
+		if pet.ID == id {
+
+			if update.Idade != nil {
+				pets[i].Idade = *update.Idade
+			}
+
+			if update.Vacinado != nil {
+				pets[i].Vacinado = *update.Vacinado
+			}
+			return pets[i], true
+		}
+	}
+	return Pet{}, false
+}
 
 // CRUD
 
 // GET
 func getPet (w http.ResponseWriter, r *http.Request) {
+	result := findAllPets()
+
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(pets)
+	json.NewEncoder(w).Encode(result)
+
 	fmt.Println("Listando os pets")
-	return
 }
 
 // GET Pet by ID
@@ -44,32 +136,45 @@ func getPetByIdD (w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	for _, pet := range pets {
-		if pet.ID == id {
-			json.NewEncoder(w).Encode(pet)
-			return
-		}
+	pet, found := findPetByID(id)
+	if !found {
+		http.Error(w, "Pet não encontrado", http.StatusNotFound)
+		return
 	}
-	http.Error(w, "Pet não encontrado", http.StatusNotFound)
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(pet)
 }
 
 // POST
 func createPet (w http.ResponseWriter, r *http.Request) {
-	var newPet Pet
+	var newPet PetCreate
 
 	// tratar o erro e desserializar
 	err := json.NewDecoder(r.Body).Decode(&newPet)
 	if err != nil {
-		http.Error(w, "Json inválido", http.StatusBadRequest)
+    	fmt.Println("Erro ao decodificar JSON:", err)
+    	http.Error(w, "JSON inválido", http.StatusBadRequest)
+    	return
+	}
+
+	err = validatePetCreate(newPet)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-    
-	// salvar em pets
-	pets = append(pets, newPet)
+
+	pet := buildPet(newPet)
+	savePet(pet)
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(pet)
+
 	fmt.Println("Criando o pet")
-	return
 }
 
+/*
 // PUT
 func putPet (w http.ResponseWriter, r *http.Request) {
 	var newPet Pet
@@ -94,6 +199,7 @@ func putPet (w http.ResponseWriter, r *http.Request) {
 		}
 	}
 }
+	*/
 
 // DELETE
 func deletePet (w http.ResponseWriter, r *http.Request) {
@@ -103,14 +209,12 @@ func deletePet (w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	for i, pet := range pets {
-		if pet.ID == id {
-			pets = append(pets[:i], pets[i + 1:]...)
-			fmt.Fprintln(w, "Pet deletado")
-			return
-		}
+	deleted := removePetById(id)
+	if !deleted {
+		http.Error(w, "Pet não encontrado", http.StatusNotFound)
+		return
 	}
-    http.Error(w, "Pet não encontrado", http.StatusNotFound)
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // PATCH
@@ -127,29 +231,22 @@ func patchPet(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "JSON inválido", http.StatusBadRequest)
 		return
 	}
-
-	if petUpdate.Idade == nil && petUpdate.Vacinado == nil {
-		http.Error(w, "Nenhum campo para atualizar", http.StatusBadRequest)
+	err = validatePetUpdate(petUpdate)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	for i, pet := range pets {
-		if pet.ID == id {
-			if petUpdate.Idade != nil {
-				pets[i].Idade = *petUpdate.Idade
-			}
-			if petUpdate.Vacinado != nil {
-				pets[i].Vacinado = *petUpdate.Vacinado
-			}
-
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(pets[i])
-
-			return
-		}
+	pet, found := updatePetByID(id, petUpdate)
+	if !found {
+		http.Error(w, "Pet não encontrado", http.StatusNotFound)
+		return
 	}
-	http.Error(w, "Pet não encontrado", http.StatusNotFound)
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(pet)
+
 }
 
 
@@ -158,9 +255,10 @@ func main () {
 	mux.HandleFunc("GET /pets", getPet)
 	mux.HandleFunc("GET /pets/{id}", getPetByIdD)
 	mux.HandleFunc("POST /pets", createPet)
-	mux.HandleFunc("PUT /pets/{id}", putPet)
+	//mux.HandleFunc("PUT /pets/{id}", putPet)
 	mux.HandleFunc("DELETE /pets/{id}", deletePet)
 	mux.HandleFunc("PATCH /pets/{id}", patchPet)
 
-	http.ListenAndServe(":8080", nil)
+	fmt.Println("Servidor rodando em http://localhost:8080")
+	http.ListenAndServe(":8080", mux)
 }

@@ -64,3 +64,21 @@ func createPetService (input PetCreate) (Pet, error) {
 	savePet(pet)
 	return pet, nil
 }
+
+func getPetByIDService(id int) (Pet, error) {
+	pet, found := findPetByID(id)
+
+	if !found {
+		return Pet{}, errors.New("pet não encontrado")
+	}
+	return pet, nil
+}
+
+func removePetService(id int) (error) {
+	removed := removePetById(id)
+
+	if !removed {
+		return errors.New("pet não encontrado")
+	}
+	return nil
+}

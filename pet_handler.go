@@ -27,9 +27,9 @@ func getPetByIdD (w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	pet, found := findPetByID(id)
-	if !found {
-		http.Error(w, "Pet não encontrado", http.StatusNotFound)
+	pet, err := getPetByIDService(id)
+	if err != nil {
+		http.Error(w, "pet não encontrado", http.StatusNotFound)
 		return
 	}
 
@@ -91,15 +91,15 @@ func putPet (w http.ResponseWriter, r *http.Request) {
 
 // DELETE
 func deletePet (w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.Atoi(r.PathValue("id")) // id e err tem o mesmo valor da variavel pq o erro será a verificação do id invalido, e o id será o proprio id
+	id, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil {
 		http.Error(w, "ID inválido", http.StatusBadRequest)
 		return
 	}
 
-	deleted := removePetById(id)
-	if !deleted {
-		http.Error(w, "Pet não encontrado", http.StatusNotFound)
+	err = removePetService(id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -119,20 +119,18 @@ func patchPet(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "JSON inválido", http.StatusBadRequest)
 		return
 	}
-	err = validatePetUpdate(petUpdate)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
 
 	pet, err := updatePet(id, petUpdate)
 	if err != nil {
-		http.Error(w, "Pet não encontrado", http.StatusNotFound)
+		if err.Error() == "pet não encontrado" {
+			http.Error(w, err.Error(), http.StatusNotFound)
+			return
+		}
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(pet)
-
 }

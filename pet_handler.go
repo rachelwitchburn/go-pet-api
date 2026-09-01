@@ -49,14 +49,11 @@ func createPet (w http.ResponseWriter, r *http.Request) {
     	return
 	}
 
-	err = validatePetCreate(newPet)
+	pet, err := createPetService(newPet)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-
-	pet := buildPet(newPet)
-	savePet(pet)
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
@@ -128,8 +125,8 @@ func patchPet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	pet, found := updatePetByID(id, petUpdate)
-	if !found {
+	pet, err := updatePet(id, petUpdate)
+	if err != nil {
 		http.Error(w, "Pet não encontrado", http.StatusNotFound)
 		return
 	}

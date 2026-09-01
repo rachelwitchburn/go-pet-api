@@ -29,6 +29,18 @@ func validatePetUpdate(update PetUpdate) error {
 	return nil
 }
 
+func updatePet(id int, update PetUpdate) (Pet, error) {
+	err := validatePetUpdate(update)
+	if err != nil {
+		return Pet{}, err
+	}
+	pet, found := updatePetByID(id, update)
+	if !found {
+		return Pet{}, errors.New("pet não encontrado")
+	}
+	return pet, nil
+}
+
 func buildPet(input PetCreate) Pet {
 	pet := Pet {
 		ID:       nextID,
@@ -40,4 +52,15 @@ func buildPet(input PetCreate) Pet {
 
 	nextID++
 	return pet
+}
+
+func createPetService (input PetCreate) (Pet, error) {
+	err := validatePetCreate(input)
+	if err != nil {
+		return Pet{}, err
+	}
+	pet := buildPet(input)
+
+	savePet(pet)
+	return pet, nil
 }

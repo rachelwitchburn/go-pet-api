@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -122,7 +123,7 @@ func patchPet(w http.ResponseWriter, r *http.Request) {
 
 	pet, err := updatePet(id, petUpdate)
 	if err != nil {
-		if err.Error() == "pet não encontrado" {
+		if errors.Is(err, ErrPetNotFound) {
 			http.Error(w, err.Error(), http.StatusNotFound)
 			return
 		}

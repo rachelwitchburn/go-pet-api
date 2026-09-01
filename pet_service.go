@@ -4,6 +4,9 @@ import (
 	"errors"
 )
 
+var ErrPetNotFound = errors.New("pet não encontrado")
+
+
 func validatePetCreate (pet PetCreate) error {
 	if pet.Tipo == "" {
 		return errors.New("Tipo do pet é obrigatório")
@@ -36,7 +39,7 @@ func updatePet(id int, update PetUpdate) (Pet, error) {
 	}
 	pet, found := updatePetByID(id, update)
 	if !found {
-		return Pet{}, errors.New("pet não encontrado")
+		return Pet{}, ErrPetNotFound
 	}
 	return pet, nil
 }

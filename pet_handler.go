@@ -30,10 +30,14 @@ func getPetByIdD (w http.ResponseWriter, r *http.Request) {
 
 	pet, err := getPetByIDService(id)
 	if err != nil {
-		http.Error(w, "pet não encontrado", http.StatusNotFound)
+		if errors.Is(err, ErrPetNotFound) {
+			http.Error(w, "pet não encontrado", http.StatusNotFound)
+			return
+		}
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-
+	
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(pet)
 }
@@ -100,8 +104,12 @@ func deletePet (w http.ResponseWriter, r *http.Request) {
 
 	err = removePetService(id)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
-		return
+		if errors.Is(err, ErrPetNotFound) {
+			http.Error(w, err.Error(), http.StatusNotFound)
+			return
+		}
+		http.Error(w, "erro interno", http.StatusInternalServerError)
+		return		
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
